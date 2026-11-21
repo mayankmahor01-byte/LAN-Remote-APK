@@ -17,6 +17,7 @@ import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -25,6 +26,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Spinner
@@ -38,443 +40,508 @@ import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
 
-data class HopTarget(
+data class HopDevice(
     val id: String,
-    val name: String,
+    val label: String,
     val ip: String,
     val port: Int,
-    var smoothedRssi: Double = -90.0,
+    var rssi: Double = -88.0,
     var lastSeen: Long = 0L
 )
 
+private object AirHopPalette {
+    val voidBg = Color.parseColor("#06070B")
+    val glassFill = Color.parseColor("#CC111520")
+    val glassSubtle = Color.parseColor("#99141926")
+    val rimLight = Color.parseColor("#38FFFFFF")
+    val rimSoft = Color.parseColor("#1AFFFFFF")
+
+    val glowViolet = Color.parseColor("#8B5CF6")
+    val glowCyan = Color.parseColor("#22D3EE")
+    val glowLime = Color.parseColor("#A3E635")
+    val glowAmber = Color.parseColor("#F59E0B")
+
+    val inkPrimary = Color.parseColor("#F8FAFC")
+    val inkSecondary = Color.parseColor("#94A3B8")
+}
+
 /**
- * Custom vector emblem: Air-Hop swift/hare silhouette with gradient aura (zero image files).
+ * Bold squircle + leaping hare/swift glyph (zero external image files).
  */
-class AirHopLogoView(context: Context) : View(context) {
-    private val auraPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val accentPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val eyePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+class AirHopGlyphView(context: Context) : View(context) {
+    private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val bloomPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val cutPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val size = (88 * resources.displayMetrics.density).toInt()
-        setMeasuredDimension(size, size)
+        val px = (76 * resources.displayMetrics.density).toInt()
+        setMeasuredDimension(px, px)
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val w = width.toFloat()
         val h = height.toFloat()
-        val r = w * 0.28f
+        val corner = w * 0.27f
 
-        // Squircle base with tech gradient
-        val bgShader = LinearGradient(
+        bgPaint.shader = LinearGradient(
             0f, 0f, w, h,
-            intArrayOf(Color.parseColor("#1A1633"), Color.parseColor("#0D1322")),
+            intArrayOf(AirHopPalette.glowViolet, AirHopPalette.glowCyan),
             null,
             Shader.TileMode.CLAMP
         )
-        auraPaint.shader = bgShader
-        canvas.drawRoundRect(0f, 0f, w, h, r, r, auraPaint)
+        canvas.drawRoundRect(0f, 0f, w, h, corner, corner, bgPaint)
 
-        // Ambient glow
-        val glow = RadialGradient(
-            w * 0.65f, h * 0.30f, w * 0.65f,
-            Color.parseColor("#667C3AED"), Color.TRANSPARENT,
+        bloomPaint.shader = RadialGradient(
+            w * 0.25f, h * 0.20f, w * 0.75f,
+            Color.parseColor("#55FFFFFF"), Color.TRANSPARENT,
             Shader.TileMode.CLAMP
         )
-        val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = glow }
-        canvas.drawRoundRect(0f, 0f, w, h, r, r, glowPaint)
+        canvas.drawRoundRect(0f, 0f, w, h, corner, corner, bloomPaint)
 
-        // Animal metaphor: streamlined air-leaping hare/swift silhouette
-        val animalShader = LinearGradient(
-            w * 0.2f, h * 0.75f, w * 0.85f, h * 0.2f,
-            intArrayOf(Color.parseColor("#38BDF8"), Color.parseColor("#A855F7"), Color.parseColor("#A3E635")),
-            null,
-            Shader.TileMode.CLAMP
-        )
-        bodyPaint.shader = animalShader
-
-        val leapPath = Path().apply {
-            moveTo(w * 0.22f, h * 0.66f)
-            quadTo(w * 0.36f, h * 0.44f, w * 0.56f, h * 0.46f)
-            // Swept-back ear / air-fin
-            lineTo(w * 0.44f, h * 0.20f)
-            lineTo(w * 0.58f, h * 0.38f)
-            // Second dynamic ear
-            lineTo(w * 0.54f, h * 0.17f)
-            lineTo(w * 0.66f, h * 0.41f)
-            // Head & snout hopping forward
-            quadTo(w * 0.80f, h * 0.45f, w * 0.78f, h * 0.57f)
-            quadTo(w * 0.66f, h * 0.62f, w * 0.52f, h * 0.64f)
-            quadTo(w * 0.36f, h * 0.76f, w * 0.22f, h * 0.66f)
+        // Minimal high-contrast leaping animal silhouette in dark obsidian
+        glyphPaint.color = Color.parseColor("#090B10")
+        val silhouette = Path().apply {
+            moveTo(w * 0.24f, h * 0.68f)
+            quadTo(w * 0.36f, h * 0.45f, w * 0.57f, h * 0.48f)
+            lineTo(w * 0.47f, h * 0.21f)
+            lineTo(w * 0.60f, h * 0.41f)
+            lineTo(w * 0.58f, h * 0.19f)
+            lineTo(w * 0.68f, h * 0.44f)
+            quadTo(w * 0.80f, h * 0.50f, w * 0.76f, h * 0.61f)
+            quadTo(w * 0.62f, h * 0.66f, w * 0.48f, h * 0.68f)
+            quadTo(w * 0.34f, h * 0.76f, w * 0.24f, h * 0.68f)
             close()
         }
-        canvas.drawPath(leapPath, bodyPaint)
+        canvas.drawPath(silhouette, glyphPaint)
 
-        // Hop motion arc below
-        accentPaint.style = Paint.Style.STROKE
-        accentPaint.strokeWidth = w * 0.032f
-        accentPaint.strokeCap = Paint.Cap.ROUND
-        accentPaint.color = Color.parseColor("#9938BDF8")
-        canvas.drawArc(w * 0.24f, h * 0.64f, w * 0.74f, h * 0.86f, 15f, 130f, false, accentPaint)
-
-        // Crisp eye dot
-        eyePaint.color = Color.parseColor("#0B0D12")
-        canvas.drawCircle(w * 0.67f, h * 0.49f, w * 0.036f, eyePaint)
+        // Crisp eye highlight
+        cutPaint.color = AirHopPalette.glowLime
+        canvas.drawCircle(w * 0.67f, h * 0.52f, w * 0.036f, cutPaint)
     }
 }
 
 class MainActivity : AppCompatActivity() {
 
-    // --- UI Theme Tokens (Edit here to restyle colors/radii easily) ---
-    private val bgDark = "#090B10"
-    private val cardDark = "#121622"
-    private val borderGlow = "#2A3348"
-    private val accentViolet = "#8B5CF6"
-    private val accentCyan = "#38BDF8"
-    private val accentLime = "#A3E635"
-    private val textPrimary = "#F8FAFC"
-    private val textMuted = "#94A3B8"
+    private val nodes = linkedMapOf<String, HopDevice>()
+    private var currentTarget: HopDevice? = null
+    private var autoProximity = true
 
-    private val devices = mutableMapOf<String, HopTarget>()
-    private var activeDevice: HopTarget? = null
-    private var isAutoMode = true
-
-    private lateinit var statusLabel: TextView
-    private lateinit var signalLabel: TextView
-    private lateinit var modeBtn: Button
-    private lateinit var deviceSpinner: Spinner
+    private lateinit var activeDeviceText: TextView
+    private lateinit var telemetryText: TextView
+    private lateinit var modePillBtn: Button
+    private lateinit var targetSpinner: Spinner
     private lateinit var spinnerAdapter: ArrayAdapter<String>
-    private val deviceLabels = mutableListOf<String>()
-    private val deviceIds = mutableListOf<String>()
+    private val spinnerItems = mutableListOf<String>()
+    private val spinnerIds = mutableListOf<String>()
 
-    private val udpExecutor = Executors.newSingleThreadExecutor()
-    private val uiHandler = Handler(Looper.getMainLooper())
+    private val netExecutor = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        seedHomeNodes()
-        setContentView(createAirHopScreen())
-        requestBlePermissions()
+        seedNodes()
+        setContentView(buildAirHopRoot())
+        ensureBlePermissions()
     }
 
-    private fun seedHomeNodes() {
-        val now = System.currentTimeMillis()
-        devices["LIVING_TV"] = HopTarget("LIVING_TV", "Living Room TV", "192.168.31.101", 9876, -82.0, now)
-        devices["BEDROOM_PC"] = HopTarget("BEDROOM_PC", "Workstation PC", "192.168.31.102", 9876, -86.0, now)
-        activeDevice = devices["LIVING_TV"]
+    private fun seedNodes() {
+        val t = System.currentTimeMillis()
+        nodes["LIVING_TV"] = HopDevice("LIVING_TV", "Living Room TV", "192.168.31.101", 9876, -80.0, t)
+        nodes["WORK_PC"] = HopDevice("WORK_PC", "Desktop PC", "192.168.31.102", 9876, -87.0, t)
+        currentTarget = nodes["LIVING_TV"]
     }
 
-    private fun createAirHopScreen(): View {
+    private fun buildAirHopRoot(): View {
         val scroll = ScrollView(this).apply {
-            setBackgroundColor(Color.parseColor(bgDark))
+            setBackgroundColor(AirHopPalette.voidBg)
             isFillViewport = true
         }
 
-        val container = LinearLayout(this).apply {
+        val stack = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(44, 56, 44, 56)
+            setPadding(40, 52, 40, 64)
         }
 
-        // 1. Header Card with AIRHOP Vector Emblem + Gradient Accent
-        val headerCard = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(32, 28, 32, 28)
-            background = gradientCard(
-                intArrayOf(Color.parseColor("#1E1736"), Color.parseColor("#10192B")),
-                36f,
-                Color.parseColor("#668B5CF6")
-            )
-        }
-        headerCard.addView(AirHopLogoView(this))
+        stack.addView(buildHeroBloomCard())
+        stack.addView(buildProximityCapsuleCard(), marginTopDp(18))
+        stack.addView(buildRemoteClusterCard(), marginTopDp(18))
 
-        val brandCol = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(28, 0, 0, 0)
-        }
-        brandCol.addView(TextView(this).apply {
-            text = "AIRHOP"
-            textSize = 24f
-            typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.14f
-            setTextColor(Color.parseColor(textPrimary))
-        })
-        brandCol.addView(TextView(this).apply {
-            text = "PROXIMITY LAN CONTROL"
-            textSize = 11f
-            letterSpacing = 0.08f
-            setTextColor(Color.parseColor(accentCyan))
-        })
-        signalLabel = TextView(this).apply {
-            text = "${activeDevice?.name} • ${activeDevice?.ip}"
-            textSize = 13f
-            setTextColor(Color.parseColor(textMuted))
-            setPadding(0, 10, 0, 0)
-        }
-        brandCol.addView(signalLabel)
-        headerCard.addView(brandCol, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        container.addView(headerCard)
-
-        // 2. Auto / Manual Mode & Device Selector Card
-        val modeCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(28, 24, 28, 24)
-            background = gradientCard(
-                intArrayOf(Color.parseColor(cardDark), Color.parseColor("#0E121C")),
-                32f,
-                Color.parseColor(borderGlow)
-            )
-        }
-        val modeParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 24, 0, 24) }
-        container.addView(modeCard, modeParams)
-
-        statusLabel = TextView(this).apply {
-            text = "AUTO PROXIMITY ACTIVE • HYSTERESIS +8 dBm"
-            textSize = 12f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(Color.parseColor(accentLime))
-            setPadding(0, 0, 0, 16)
-        }
-        modeCard.addView(statusLabel)
-
-        modeBtn = Button(this).apply {
-            text = "AUTO DETECT: ON (TAP FOR MANUAL)"
-            textSize = 13f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(Color.parseColor("#090B10"))
-            setPadding(24, 24, 24, 24)
-            background = pillButton(accentCyan, 24f)
-            setOnClickListener {
-                isAutoMode = !isAutoMode
-                syncModeUi()
-                if (isAutoMode) evaluateProximity()
-            }
-        }
-        modeCard.addView(modeBtn, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ))
-
-        spinnerAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, deviceLabels)
-        deviceSpinner = Spinner(this).apply {
-            adapter = spinnerAdapter
-            setBackgroundColor(Color.parseColor("#192030"))
-            setPadding(18, 18, 18, 18)
-        }
-        refreshDevices()
-
-        val lockBtn = Button(this).apply {
-            text = "LOCK"
-            textSize = 12f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(Color.WHITE)
-            setPadding(28, 20, 28, 20)
-            background = pillButton(accentViolet, 20f)
-            setOnClickListener {
-                val idx = deviceSpinner.selectedItemPosition
-                if (idx in deviceIds.indices) {
-                    isAutoMode = false
-                    activeDevice = devices[deviceIds[idx]]
-                    syncModeUi()
-                    updateTelemetry()
-                }
-            }
-        }
-
-        val selectorRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 20, 0, 0)
-            addView(deviceSpinner, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                setMargins(0, 0, 16, 0)
-            })
-            addView(lockBtn)
-        }
-        modeCard.addView(selectorRow)
-
-        // 3. Tactile Remote Control Grid
-        val padCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(24, 28, 24, 28)
-            background = gradientCard(
-                intArrayOf(Color.parseColor(cardDark), Color.parseColor("#0C0F18")),
-                36f,
-                Color.parseColor(borderGlow)
-            )
-        }
-        container.addView(padCard)
-
-        val keyRows = listOf(
-            listOf("PWR" to "KEY_POWER", "MUTE" to "KEY_MUTE"),
-            listOf("▲" to "KEY_UP"),
-            listOf("◀" to "KEY_LEFT", "HOP OK" to "KEY_ENTER", "▶" to "KEY_RIGHT"),
-            listOf("▼" to "KEY_DOWN"),
-            listOf("BACK" to "KEY_BACK", "HOME" to "KEY_HOME"),
-            listOf("VOL -" to "KEY_VOLDOWN", "PLAY/PAUSE" to "KEY_PLAYPAUSE", "VOL +" to "KEY_VOLUP")
-        )
-
-        for (row in keyRows) {
-            val rowView = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER
-                setPadding(0, 10, 0, 10)
-            }
-            for ((label, cmd) in row) {
-                val isOk = cmd == "KEY_ENTER"
-                val keyBtn = Button(this).apply {
-                    text = label
-                    textSize = if (isOk) 14f else 13f
-                    typeface = Typeface.DEFAULT_BOLD
-                    setTextColor(if (isOk) Color.parseColor("#090B10") else Color.parseColor(textPrimary))
-                    setPadding(24, 30, 24, 30)
-                    background = if (isOk) {
-                        pillButton(accentLime, 26f)
-                    } else {
-                        gradientCard(
-                            intArrayOf(Color.parseColor("#1A2234"), Color.parseColor("#131926")),
-                            24f,
-                            Color.parseColor("#334155")
-                        )
-                    }
-                    setOnClickListener { dispatchLanCommand(cmd) }
-                }
-                rowView.addView(keyBtn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    setMargins(10, 0, 10, 0)
-                })
-            }
-            padCard.addView(rowView)
-        }
-
-        scroll.addView(container)
+        scroll.addView(stack)
         return scroll
     }
 
-    private fun gradientCard(colors: IntArray, radius: Float, strokeColor: Int) = GradientDrawable().apply {
-        this.colors = colors
-        orientation = GradientDrawable.Orientation.TL_BR
-        cornerRadius = radius
-        setStroke(2, strokeColor)
+    private fun buildHeroBloomCard(): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(28, 26, 28, 26)
+            background = ambientGlowDrawable(
+                bloomColor = AirHopPalette.glowViolet,
+                surfaceColor = AirHopPalette.glassFill,
+                strokeColor = AirHopPalette.rimLight,
+                radiusPx = 44f
+            )
+        }
+
+        card.addView(AirHopGlyphView(this))
+
+        val infoCol = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 0, 0, 0)
+        }
+
+        val brandRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        brandRow.addView(TextView(this).apply {
+            text = "AIRHOP"
+            textSize = 23f
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.16f
+            setTextColor(AirHopPalette.inkPrimary)
+        })
+
+        brandRow.addView(TextView(this).apply {
+            text = "  LAN • BLE"
+            textSize = 11f
+            typeface = Typeface.MONOSPACE
+            setTextColor(AirHopPalette.glowCyan)
+        })
+        infoCol.addView(brandRow)
+
+        activeDeviceText = TextView(this).apply {
+            text = currentTarget?.let { "${it.label} · ${it.ip}" } ?: "No target"
+            textSize = 14f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(AirHopPalette.inkPrimary)
+            setPadding(0, 8, 0, 4)
+        }
+        infoCol.addView(activeDeviceText)
+
+        telemetryText = TextView(this).apply {
+            text = "AUTO HOP (+8 dBm) · PORT 9876"
+            textSize = 11f
+            typeface = Typeface.MONOSPACE
+            setTextColor(AirHopPalette.glowLime)
+        }
+        infoCol.addView(telemetryText)
+
+        card.addView(infoCol, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        return card
     }
 
-    private fun pillButton(colorHex: String, radius: Float) = GradientDrawable().apply {
-        setColor(Color.parseColor(colorHex))
-        cornerRadius = radius
+    private fun buildProximityCapsuleCard(): View {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(26, 24, 26, 24)
+            background = ambientGlowDrawable(
+                bloomColor = AirHopPalette.glowCyan,
+                surfaceColor = AirHopPalette.glassSubtle,
+                strokeColor = AirHopPalette.rimSoft,
+                radiusPx = 38f
+            )
+        }
+
+        val topPills = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        modePillBtn = Button(this).apply {
+            text = "AUTO DETECT : ON"
+            textSize = 12f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(AirHopPalette.voidBg)
+            setPadding(24, 18, 24, 18)
+            background = solidPill(AirHopPalette.glowLime, 999f)
+            setOnClickListener {
+                autoProximity = !autoProximity
+                refreshModeBadge()
+                if (autoProximity) pickNearestNode()
+            }
+        }
+        topPills.addView(modePillBtn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        box.addView(topPills)
+
+        spinnerAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, spinnerItems)
+        targetSpinner = Spinner(this).apply {
+            adapter = spinnerAdapter
+            setBackgroundColor(Color.parseColor("#1D2436"))
+            setPadding(18, 16, 18, 16)
+        }
+        syncSpinner()
+
+        val manualLockBtn = Button(this).apply {
+            text = "MANUAL LOCK"
+            textSize = 12f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(AirHopPalette.inkPrimary)
+            setPadding(24, 18, 24, 18)
+            background = solidPill(Color.parseColor("#252D42"), 999f)
+            setOnClickListener {
+                val pos = targetSpinner.selectedItemPosition
+                if (pos in spinnerIds.indices) {
+                    autoProximity = false
+                    currentTarget = nodes[spinnerIds[pos]]
+                    refreshModeBadge()
+                    refreshTelemetry()
+                }
+            }
+        }
+
+        val manualRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 18, 0, 0)
+            addView(targetSpinner, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(0, 0, 14, 0)
+            })
+            addView(manualLockBtn)
+        }
+        box.addView(manualRow)
+        return box
     }
 
-    private fun syncModeUi() {
-        if (isAutoMode) {
-            modeBtn.text = "AUTO DETECT: ON (TAP FOR MANUAL)"
-            modeBtn.background = pillButton(accentCyan, 24f)
-            statusLabel.text = "AUTO PROXIMITY ACTIVE • HYSTERESIS +8 dBm"
-            statusLabel.setTextColor(Color.parseColor(accentLime))
+    private fun buildRemoteClusterCard(): View {
+        val deck = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 26, 24, 26)
+            background = ambientGlowDrawable(
+                bloomColor = AirHopPalette.glowViolet,
+                surfaceColor = AirHopPalette.glassFill,
+                strokeColor = AirHopPalette.rimSoft,
+                radiusPx = 42f
+            )
+        }
+
+        val rows = listOf(
+            listOf(
+                KeySpec("POWER", "KEY_POWER", AirHopPalette.glowAmber, true),
+                KeySpec("MUTE", "KEY_MUTE", null, false)
+            ),
+            listOf(
+                KeySpec("▲", "KEY_UP", null, false)
+            ),
+            listOf(
+                KeySpec("◀", "KEY_LEFT", null, false),
+                KeySpec("OK", "KEY_ENTER", AirHopPalette.glowCyan, true),
+                KeySpec("▶", "KEY_RIGHT", null, false)
+            ),
+            listOf(
+                KeySpec("▼", "KEY_DOWN", null, false)
+            ),
+            listOf(
+                KeySpec("BACK", "KEY_BACK", null, false),
+                KeySpec("HOME", "KEY_HOME", null, false)
+            ),
+            listOf(
+                KeySpec("VOL −", "KEY_VOLDOWN", null, false),
+                KeySpec("PLAY / PAUSE", "KEY_PLAYPAUSE", AirHopPalette.glowViolet, true),
+                KeySpec("VOL +", "KEY_VOLUP", null, false)
+            )
+        )
+
+        for (row in rows) {
+            val rowLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                setPadding(0, 9, 0, 9)
+            }
+            for (spec in row) {
+                val btn = Button(this).apply {
+                    text = spec.title
+                    textSize = 13f
+                    typeface = Typeface.DEFAULT_BOLD
+                    letterSpacing = 0.06f
+                    if (spec.highlightHex != null) {
+                        setTextColor(if (spec.darkText) AirHopPalette.voidBg else AirHopPalette.inkPrimary)
+                        background = solidPill(spec.highlightHex, 28f)
+                    } else {
+                        setTextColor(AirHopPalette.inkPrimary)
+                        background = glassKeyDrawable()
+                    }
+                    setPadding(20, 28, 20, 28)
+                    setOnClickListener { sendUdpCommand(spec.command) }
+                }
+                rowLayout.addView(btn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(9, 0, 9, 0)
+                })
+            }
+            deck.addView(rowLayout)
+        }
+
+        return deck
+    }
+
+    private data class KeySpec(
+        val title: String,
+        val command: String,
+        val highlightHex: Int?,
+        val darkText: Boolean
+    )
+
+    private fun ambientGlowDrawable(
+        bloomColor: Int,
+        surfaceColor: Int,
+        strokeColor: Int,
+        radiusPx: Float
+    ): LayerDrawable {
+        val base = GradientDrawable().apply {
+            setColor(surfaceColor)
+            cornerRadius = radiusPx
+            setStroke(2, strokeColor)
+        }
+        val bloom = GradientDrawable().apply {
+            gradientType = GradientDrawable.RADIAL_GRADIENT
+            gradientRadius = 420f
+            setGradientCenter(0.18f, 0.12f)
+            colors = intArrayOf(
+                Color.argb(68, Color.red(bloomColor), Color.green(bloomColor), Color.blue(bloomColor)),
+                Color.TRANSPARENT
+            )
+            cornerRadius = radiusPx
+        }
+        return LayerDrawable(arrayOf(base, bloom))
+    }
+
+    private fun glassKeyDrawable() = GradientDrawable().apply {
+        colors = intArrayOf(Color.parseColor("#241B293D"), Color.parseColor("#24101522"))
+        orientation = GradientDrawable.Orientation.TOP_BOTTOM
+        cornerRadius = 28f
+        setStroke(2, AirHopPalette.rimSoft)
+    }
+
+    private fun solidPill(colorInt: Int, radiusPx: Float) = GradientDrawable().apply {
+        setColor(colorInt)
+        cornerRadius = radiusPx
+    }
+
+    private fun marginTopDp(dp: Int) = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT
+    ).apply {
+        topMargin = (dp * resources.displayMetrics.density).toInt()
+    }
+
+    private fun refreshModeBadge() {
+        if (autoProximity) {
+            modePillBtn.text = "AUTO DETECT : ON"
+            modePillBtn.setTextColor(AirHopPalette.voidBg)
+            modePillBtn.background = solidPill(AirHopPalette.glowLime, 999f)
+            telemetryText.text = "AUTO HOP (+8 dBm) · PORT 9876"
+            telemetryText.setTextColor(AirHopPalette.glowLime)
         } else {
-            modeBtn.text = "MANUAL LOCK: ON (TAP FOR AUTO)"
-            modeBtn.background = pillButton(accentViolet, 24f)
-            statusLabel.text = "MANUAL OVERRIDE LOCKED"
-            statusLabel.setTextColor(Color.parseColor("#C084FC"))
+            modePillBtn.text = "MANUAL LOCK : ON"
+            modePillBtn.setTextColor(AirHopPalette.inkPrimary)
+            modePillBtn.background = solidPill(AirHopPalette.glowViolet, 999f)
+            telemetryText.text = "MANUAL OVERRIDE · AUTO PAUSED"
+            telemetryText.setTextColor(AirHopPalette.glowCyan)
         }
     }
 
-    private fun dispatchLanCommand(cmd: String) {
-        val target = activeDevice ?: return
-        udpExecutor.execute {
+    private fun sendUdpCommand(command: String) {
+        val target = currentTarget ?: return
+        netExecutor.execute {
             try {
                 val socket = DatagramSocket()
-                val payload = "AIRHOP|${target.id}|$cmd".toByteArray(StandardCharsets.UTF_8)
-                val packet = DatagramPacket(payload, payload.size, InetAddress.getByName(target.ip), target.port)
+                val raw = "AIRHOP|${target.id}|$command".toByteArray(StandardCharsets.UTF_8)
+                val packet = DatagramPacket(raw, raw.size, InetAddress.getByName(target.ip), target.port)
                 socket.send(packet)
                 socket.close()
-                uiHandler.post {
-                    signalLabel.text = "${target.name} • Sent $cmd"
+                mainHandler.post {
+                    telemetryText.text = "TX → ${target.label} : $command"
                 }
-            } catch (e: Exception) {
-                uiHandler.post {
-                    Toast.makeText(this, "LAN send failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            } catch (ex: Exception) {
+                mainHandler.post {
+                    Toast.makeText(this, "LAN error: ${ex.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
 
-    private fun requestBlePermissions() {
+    private fun ensureBlePermissions() {
         val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
         } else {
             arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
         }
         if (perms.any { ActivityCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }) {
-            ActivityCompat.requestPermissions(this, perms, 202)
+            ActivityCompat.requestPermissions(this, perms, 303)
         } else {
-            startBleProximityScan()
+            startBleScan()
         }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 202 && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-            startBleProximityScan()
+        if (requestCode == 303 && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+            startBleScan()
         }
     }
 
     @SuppressLint("MissingPermission")
-    private fun startBleProximityScan() {
+    private fun startBleScan() {
         val bm = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         val scanner = bm.adapter?.bluetoothLeScanner ?: return
-        val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
+        val settings = ScanSettings.Builder()
+            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .build()
 
         scanner.startScan(null, settings, object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
-                val advName = result.device.name ?: result.scanRecord?.deviceName ?: return
-                // Format: AIRHOP|ID|192.168.31.105|9876
-                if (advName.startsWith("AIRHOP|")) {
-                    val parts = advName.split("|")
+                val adv = result.device.name ?: result.scanRecord?.deviceName ?: return
+                // Expected beacon name: AIRHOP|ID|192.168.31.105|9876
+                if (adv.startsWith("AIRHOP|")) {
+                    val parts = adv.split("|")
                     if (parts.size == 4) {
                         val id = parts[1]
                         val ip = parts[2]
                         val port = parts[3].toIntOrNull() ?: 9876
                         val now = System.currentTimeMillis()
-                        val node = devices.getOrPut(id) {
-                            HopTarget(id, id, ip, port, result.rssi.toDouble(), now)
+                        val node = nodes.getOrPut(id) {
+                            HopDevice(id, id, ip, port, result.rssi.toDouble(), now)
                         }
-                        node.smoothedRssi = (0.35 * result.rssi) + (0.65 * node.smoothedRssi)
+                        node.rssi = (0.35 * result.rssi) + (0.65 * node.rssi)
                         node.lastSeen = now
-                        refreshDevices()
-                        if (isAutoMode) evaluateProximity()
+                        syncSpinner()
+                        if (autoProximity) pickNearestNode()
                     }
                 }
             }
         })
     }
 
-    private fun evaluateProximity() {
+    private fun pickNearestNode() {
         val now = System.currentTimeMillis()
-        val strongest = devices.values.filter { now - it.lastSeen < 5000 }.maxByOrNull { it.smoothedRssi } ?: return
-        val current = activeDevice
-
-        if (current == null || (strongest.id != current.id && strongest.smoothedRssi > current.smoothedRssi + 8.0)) {
-            activeDevice = strongest
-            updateTelemetry()
+        val strongest = nodes.values.filter { now - it.lastSeen < 5000 }.maxByOrNull { it.rssi } ?: return
+        val current = currentTarget
+        if (current == null || (strongest.id != current.id && strongest.rssi > current.rssi + 8.0)) {
+            currentTarget = strongest
+            refreshTelemetry()
         }
     }
 
-    private fun updateTelemetry() {
-        uiHandler.post {
-            val dev = activeDevice ?: return@post
-            signalLabel.text = "${dev.name} • ${dev.ip} (${dev.smoothedRssi.toInt()} dBm)"
+    private fun refreshTelemetry() {
+        mainHandler.post {
+            val dev = currentTarget ?: return@post
+            activeDeviceText.text = "${dev.label} · ${dev.ip}"
+            if (autoProximity) {
+                telemetryText.text = "AUTO HOP · ${dev.rssi.toInt()} dBm · PORT ${dev.port}"
+            }
         }
     }
 
-    private fun refreshDevices() {
-        uiHandler.post {
-            deviceLabels.clear()
-            deviceIds.clear()
-            devices.values.forEach {
-                deviceLabels.add("${it.name} (${it.ip})")
-                deviceIds.add(it.id)
+    private fun syncSpinner() {
+        mainHandler.post {
+            spinnerItems.clear()
+            spinnerIds.clear()
+            nodes.values.forEach {
+                spinnerItems.add("${it.label} (${it.ip})")
+                spinnerIds.add(it.id)
             }
             spinnerAdapter.notifyDataSetChanged()
         }
