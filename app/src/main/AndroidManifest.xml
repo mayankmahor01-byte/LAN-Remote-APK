@@ -16,7 +16,7 @@
     <application
         android:allowBackup="true"
         android:label="LAN Smart Remote"
-        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+        android:theme="@style/Theme.AppCompat.NoActionBar"
         <activity
             android:name=".MainActivity"
             android:exported="true">
